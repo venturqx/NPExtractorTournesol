@@ -41,6 +41,7 @@ import org.schabi.newpipe.extractor.services.youtube.extractors.kiosk.YoutubeTre
 import org.schabi.newpipe.extractor.services.youtube.extractors.kiosk.YoutubeTrendingMoviesAndShowsTrailersExtractor;
 import org.schabi.newpipe.extractor.services.youtube.extractors.kiosk.YoutubeTrendingMusicExtractor;
 import org.schabi.newpipe.extractor.services.youtube.extractors.kiosk.YoutubeTrendingPodcastsEpisodesExtractor;
+import org.schabi.newpipe.extractor.services.youtube.extractors.kiosk.TournesolKioskExtractor;
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeChannelLinkHandlerFactory;
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeChannelTabLinkHandlerFactory;
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeCommentsLinkHandlerFactory;
@@ -48,6 +49,7 @@ import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeLiveLink
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubePlaylistLinkHandlerFactory;
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory;
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeStreamLinkHandlerFactory;
+import org.schabi.newpipe.extractor.services.youtube.linkHandler.TournesolKioskLinkHandlerFactory;
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeTrendingGamingVideosLinkHandlerFactory;
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeTrendingLinkHandlerFactory;
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeTrendingMoviesAndShowsTrailersLinkHandlerFactory;
@@ -58,6 +60,7 @@ import org.schabi.newpipe.extractor.subscription.SubscriptionExtractor;
 import org.schabi.newpipe.extractor.suggestion.SuggestionExtractor;
 
 import java.util.List;
+import java.util.Collections;
 
 import javax.annotation.Nonnull;
 
@@ -175,6 +178,8 @@ public class YoutubeService extends StreamingService {
                 YoutubeTrendingMoviesAndShowsTrailersLinkHandlerFactory.INSTANCE;
         final ListLinkHandlerFactory trendingMusicLHF =
                 YoutubeTrendingMusicLinkHandlerFactory.INSTANCE;
+        final ListLinkHandlerFactory tournesolLHF =
+                TournesolKioskLinkHandlerFactory.INSTANCE;
 
         try {
             list.addKioskEntry(
@@ -217,6 +222,14 @@ public class YoutubeService extends StreamingService {
                             id),
                     trendingMusicLHF,
                     YoutubeTrendingMusicLinkHandlerFactory.KIOSK_ID
+            );
+            list.addKioskEntry(
+                    (streamingService, url, id) -> new TournesolKioskExtractor(
+                            YoutubeService.this,
+                            tournesolLHF.fromUrl(url),
+                            id),
+                    tournesolLHF,
+                    TournesolKioskLinkHandlerFactory.KIOSK_ID
             );
             // Deprecated (i.e. removed from the interface of YouTube) since July 21, 2025
             list.addKioskEntry(
