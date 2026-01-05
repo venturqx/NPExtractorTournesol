@@ -77,5 +77,6 @@ public class TournesolKioskExtractorTest {
         assertEquals("RickAstleyVEVO", item.getUploaderName());
         assertEquals(213, item.getDuration());
         assertEquals("https://www.youtube.com/watch?v=dQw4w9WgXcQ", item.getUrl());
+        assertEquals("tournesol-score:96", item.getShortDescription());
     }
 }

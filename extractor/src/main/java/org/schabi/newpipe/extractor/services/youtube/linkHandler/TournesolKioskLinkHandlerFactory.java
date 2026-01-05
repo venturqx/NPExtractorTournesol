@@ -35,6 +35,15 @@ public final class TournesolKioskLinkHandlerFactory extends ListLinkHandlerFacto
 
     @Override
     public boolean onAcceptUrl(final String url) {
+        if (url == null) {
+            return false;
+        }
+        if (url.regionMatches(true, 0, KIOSK_ID, 0, KIOSK_ID.length())) {
+            return true;
+        }
+        if (url.regionMatches(true, 0, "tournesol", 0, "tournesol".length())) {
+            return true;
+        }
         final URL urlObj;
         try {
             urlObj = Utils.stringToURL(url);

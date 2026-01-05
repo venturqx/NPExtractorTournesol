@@ -14,8 +14,8 @@ import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.kiosk.KioskExtractor;
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler;
 import org.schabi.newpipe.extractor.stream.StreamInfoItem;
-import org.schabi.newpipe.extractor.stream.StreamInfoItemsCollector;
 import org.schabi.newpipe.extractor.stream.StreamInfoItemExtractor;
+import org.schabi.newpipe.extractor.stream.StreamInfoItemsCollector;
 import org.schabi.newpipe.extractor.stream.StreamType;
 import org.schabi.newpipe.extractor.utils.Utils;
 import org.schabi.newpipe.extractor.localization.DateWrapper;
@@ -37,6 +37,7 @@ import javax.annotation.Nullable;
 public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
 
     public static final String KIOSK_ID = "Tournesol";
+    private static final String SCORE_PREFIX = "tournesol-score:";
     private static final String BASE_API_URL =
             "https://api.tournesol.app/polls/videos/recommendations/";
 
@@ -56,7 +57,8 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
     private String calculateDaysAgo(int days) {
         final Calendar cal = Calendar.getInstance();
         cal.add(Calendar.DATE, -days);
-        final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+        final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                Locale.US);
         sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
         return sdf.format(cal.getTime());
     }
@@ -72,7 +74,7 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
     @Override
     public void onFetchPage(@Nonnull final Downloader downloader)
             throws IOException, ExtractionException {
-        
+
         final StringBuilder urlBuilder = new StringBuilder(BASE_API_URL);
         urlBuilder.append("?limit=20");
 
@@ -94,17 +96,13 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
                 }
             }
         }
-        
+
         final String apiUrl = urlBuilder.toString();
 
         final String response = downloader.get(apiUrl, Collections.singletonMap("Accept",
                 Collections.singletonList("application/json"))).responseBody();
 
-        try {
-            initialData = JsonParser.object().from(response);
-        } catch (final JsonParserException e) {
-            throw new ParsingException("Could not parse Tournesol API response", e);
-        }
+        initialData = parseResponse(response);
     }
 
     @Nonnull
@@ -116,18 +114,50 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
     @Nonnull
     @Override
     public InfoItemsPage<StreamInfoItem> getInitialPage() throws ParsingException {
+        if (initialData == null) {
+            throw new ParsingException("Tournesol API response is missing");
+        }
+        return parseInfoItemsPage(initialData);
+    }
+
+    @Override
+    public InfoItemsPage<StreamInfoItem> getPage(final Page page)
+            throws IOException, ExtractionException {
+        if (page == null || Utils.isNullOrEmpty(page.getUrl())) {
+            throw new IllegalArgumentException("Page doesn't contain an URL");
+        }
+        final String response = getDownloader().get(page.getUrl(), Collections.singletonMap("Accept",
+                Collections.singletonList("application/json"))).responseBody();
+        final JsonObject pageData = parseResponse(response);
+        return parseInfoItemsPage(pageData);
+    }
+
+    private JsonObject parseResponse(final String response) throws ParsingException {
+        if (Utils.isNullOrEmpty(response)) {
+            throw new ParsingException("Empty Tournesol API response");
+        }
+        try {
+            return JsonParser.object().from(response);
+        } catch (final JsonParserException e) {
+            throw new ParsingException("Could not parse Tournesol API response", e);
+        }
+    }
+
+    private InfoItemsPage<StreamInfoItem> parseInfoItemsPage(final JsonObject data)
+            throws ParsingException {
         final StreamInfoItemsCollector collector =
                 new StreamInfoItemsCollector(getServiceId());
 
-        if (initialData.has("results")) {
-            final JsonArray results = initialData.getArray("results");
-            
+        if (data.has("results")) {
+            final JsonArray results = data.getArray("results");
+
             for (final Object resultObj : results) {
                 if (resultObj instanceof JsonObject) {
                     final JsonObject result = (JsonObject) resultObj;
                     final JsonObject entity = result.getObject("entity");
 
                     if (entity != null) {
+                        final String scoreText = extractScoreText(result);
                         String videoId = entity.getString("uid");
                         final Object metadataObj = entity.get("metadata");
                         JsonObject metadata = null;
@@ -137,7 +167,8 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
 
                         // Fallback logic for video ID
                         if (metadata != null && metadata.has("video_id")
-                                && (Utils.isNullOrEmpty(videoId) || !videoId.matches("[a-zA-Z0-9_-]{11}"))) {
+                                && (Utils.isNullOrEmpty(videoId)
+                                || !videoId.matches("[a-zA-Z0-9_-]{11}"))) {
                             videoId = metadata.getString("video_id");
                         }
 
@@ -145,7 +176,7 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
                         if (entity.has("name")) {
                             title = entity.getString("name");
                         }
-                        
+
                         String uploader = null;
                         long duration = -1;
                         String thumbnail = null;
@@ -244,6 +275,15 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
                                             Image.HEIGHT_UNKNOWN, Image.WIDTH_UNKNOWN,
                                             Image.ResolutionLevel.UNKNOWN));
                                 }
+
+                                @Nullable
+                                @Override
+                                public String getShortDescription() throws ParsingException {
+                                    if (Utils.isNullOrEmpty(scoreText)) {
+                                        return null;
+                                    }
+                                    return SCORE_PREFIX + scoreText;
+                                }
                             });
                         }
                     }
@@ -251,12 +291,87 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
             }
         }
 
-        return new InfoItemsPage<>(collector, null);
+        Page nextPage = null;
+        if (data.has("next")) {
+            final Object nextObj = data.get("next");
+            if (nextObj instanceof String) {
+                final String nextUrl = (String) nextObj;
+                if (!Utils.isNullOrEmpty(nextUrl)) {
+                    nextPage = new Page(nextUrl);
+                }
+            }
+        }
+
+        return new InfoItemsPage<>(collector, nextPage);
     }
 
-    @Override
-    public InfoItemsPage<StreamInfoItem> getPage(final Page page)
-            throws IOException, ExtractionException {
-        return InfoItemsPage.emptyPage();
+    @Nullable
+    private static String extractScoreText(final JsonObject result) {
+        if (result == null) {
+            return null;
+        }
+        Double score = extractScoreValue(result.get("score"));
+        if (score == null && result.has("scores")) {
+            score = extractScoreValue(result.get("scores"));
+        }
+        if (score == null && result.has("collective_rating")) {
+            score = extractScoreValue(result.get("collective_rating"));
+        }
+        if (score == null && result.has("recommendation_metadata")) {
+            score = extractScoreValue(result.get("recommendation_metadata"));
+        }
+        if (score == null && result.has("entity_contexts")) {
+            score = extractScoreValue(result.get("entity_contexts"));
+        }
+        if (score == null) {
+            return null;
+        }
+        final long rounded = Math.round(score);
+        return Long.toString(rounded);
+    }
+
+    @Nullable
+    private static Double extractScoreValue(@Nullable final Object scoreObj) {
+        if (scoreObj instanceof Number) {
+            return ((Number) scoreObj).doubleValue();
+        }
+        if (scoreObj instanceof String) {
+            try {
+                return Double.parseDouble((String) scoreObj);
+            } catch (final NumberFormatException ignored) {
+                return null;
+            }
+        }
+        if (scoreObj instanceof JsonArray) {
+            final JsonArray array = (JsonArray) scoreObj;
+            for (final Object entry : array) {
+                final Double value = extractScoreValue(entry);
+                if (value != null) {
+                    return value;
+                }
+            }
+            return null;
+        }
+        if (scoreObj instanceof JsonObject) {
+            final JsonObject obj = (JsonObject) scoreObj;
+            Double value = extractScoreValue(obj.get("score"));
+            if (value != null) {
+                return value;
+            }
+            value = extractScoreValue(obj.get("tournesol_score"));
+            if (value != null) {
+                return value;
+            }
+            value = extractScoreValue(obj.get("value"));
+            if (value != null) {
+                return value;
+            }
+            value = extractScoreValue(obj.get("mean_score"));
+            if (value != null) {
+                return value;
+            }
+            return extractScoreValue(obj.get("mean"));
+        }
+        return null;
     }
 }
