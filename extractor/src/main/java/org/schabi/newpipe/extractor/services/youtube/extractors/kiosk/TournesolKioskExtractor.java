@@ -44,6 +44,7 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
     private JsonObject initialData;
     private List<String> languages;
     private String dateGte;
+    private String uploader;
 
     public TournesolKioskExtractor(final StreamingService service,
                                    final ListLinkHandler linkHandler,
@@ -52,6 +53,7 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
         // Default behavior: 30 days ago, filtered by fr, en, es
         this.languages = Arrays.asList("fr", "en", "es");
         this.dateGte = calculateDaysAgo(30);
+        this.uploader = null;
     }
 
     private String calculateDaysAgo(int days) {
@@ -69,6 +71,10 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
 
     public void setDateGte(final String dateGte) {
         this.dateGte = dateGte;
+    }
+
+    public void setUploader(final String uploader) {
+        this.uploader = uploader;
     }
 
     @Override
@@ -94,6 +100,15 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
                 } catch (UnsupportedEncodingException e) {
                     urlBuilder.append("&metadata[language]=").append(lang);
                 }
+            }
+        }
+
+        if (!Utils.isNullOrEmpty(uploader)) {
+            try {
+                urlBuilder.append("&metadata[uploader]=")
+                        .append(URLEncoder.encode(uploader, "UTF-8"));
+            } catch (UnsupportedEncodingException e) {
+                urlBuilder.append("&metadata[uploader]=").append(uploader);
             }
         }
 
