@@ -35,6 +35,7 @@ import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeSearchExt
 import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeStreamExtractor;
 import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeSubscriptionExtractor;
 import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeSuggestionExtractor;
+import org.schabi.newpipe.extractor.services.youtube.extractors.TournesolSearchExtractor;
 import org.schabi.newpipe.extractor.services.youtube.extractors.kiosk.YoutubeTrendingExtractor;
 import org.schabi.newpipe.extractor.services.youtube.extractors.kiosk.YoutubeLiveExtractor;
 import org.schabi.newpipe.extractor.services.youtube.extractors.kiosk.YoutubeTrendingGamingVideosExtractor;
@@ -152,7 +153,11 @@ public class YoutubeService extends StreamingService {
     public SearchExtractor getSearchExtractor(final SearchQueryHandler query) {
         final List<String> contentFilters = query.getContentFilters();
 
-        if (!contentFilters.isEmpty() && contentFilters.get(0).startsWith("music_")) {
+        if (!contentFilters.isEmpty()
+                && YoutubeSearchQueryHandlerFactory.TOURNESOL.equals(contentFilters.get(0))) {
+            return new TournesolSearchExtractor(this, query);
+        } else if (!contentFilters.isEmpty()
+                && contentFilters.get(0).startsWith("music_")) {
             return new YoutubeMusicSearchExtractor(this, query);
         } else {
             return new YoutubeSearchExtractor(this, query);

@@ -1,4 +1,4 @@
-package org.schabi.newpipe.extractor.services.youtube.extractors.kiosk;
+package org.schabi.newpipe.extractor.services.youtube.extractors;
 
 import com.grack.nanojson.JsonArray;
 import com.grack.nanojson.JsonObject;
@@ -6,130 +6,55 @@ import com.grack.nanojson.JsonParser;
 import com.grack.nanojson.JsonParserException;
 
 import org.schabi.newpipe.extractor.Image;
+import org.schabi.newpipe.extractor.InfoItem;
+import org.schabi.newpipe.extractor.ListExtractor.InfoItemsPage;
+import org.schabi.newpipe.extractor.MetaInfo;
+import org.schabi.newpipe.extractor.MultiInfoItemsCollector;
 import org.schabi.newpipe.extractor.Page;
 import org.schabi.newpipe.extractor.StreamingService;
 import org.schabi.newpipe.extractor.downloader.Downloader;
 import org.schabi.newpipe.extractor.exceptions.ExtractionException;
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
-import org.schabi.newpipe.extractor.kiosk.KioskExtractor;
-import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler;
-import org.schabi.newpipe.extractor.stream.StreamInfoItem;
+import org.schabi.newpipe.extractor.linkhandler.SearchQueryHandler;
+import org.schabi.newpipe.extractor.localization.DateWrapper;
+import org.schabi.newpipe.extractor.search.SearchExtractor;
 import org.schabi.newpipe.extractor.stream.StreamInfoItemExtractor;
-import org.schabi.newpipe.extractor.stream.StreamInfoItemsCollector;
 import org.schabi.newpipe.extractor.stream.StreamType;
 import org.schabi.newpipe.extractor.utils.Utils;
-import org.schabi.newpipe.extractor.localization.DateWrapper;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.text.SimpleDateFormat;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
-import java.util.Arrays;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
-
-    public static final String KIOSK_ID = "Tournesol";
+public class TournesolSearchExtractor extends SearchExtractor {
     private static final String BASE_API_URL =
             "https://api.tournesol.app/polls/videos/recommendations/";
 
     private JsonObject initialData;
-    private List<String> languages;
-    private String dateGte;
-    private String uploader;
 
-    public TournesolKioskExtractor(final StreamingService service,
-                                   final ListLinkHandler linkHandler,
-                                   final String kioskId) {
-        super(service, linkHandler, kioskId);
-        // Default behavior: 30 days ago, filtered by fr, en, es
-        this.languages = Arrays.asList("fr", "en", "es");
-        this.dateGte = calculateDaysAgo(30);
-        this.uploader = null;
-    }
-
-    private String calculateDaysAgo(int days) {
-        final Calendar cal = Calendar.getInstance();
-        cal.add(Calendar.DATE, -days);
-        final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-                Locale.US);
-        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
-        return sdf.format(cal.getTime());
-    }
-
-    public void setLanguages(final List<String> languages) {
-        this.languages = languages;
-    }
-
-    public void setDateGte(final String dateGte) {
-        this.dateGte = dateGte;
-    }
-
-    public void setUploader(final String uploader) {
-        this.uploader = uploader;
+    public TournesolSearchExtractor(final StreamingService service,
+                                    final SearchQueryHandler linkHandler) {
+        super(service, linkHandler);
     }
 
     @Override
     public void onFetchPage(@Nonnull final Downloader downloader)
             throws IOException, ExtractionException {
-
-        final StringBuilder urlBuilder = new StringBuilder(BASE_API_URL);
-        urlBuilder.append("?limit=20");
-
-        if (dateGte != null && !dateGte.isEmpty()) {
-            try {
-                urlBuilder.append("&date_gte=").append(URLEncoder.encode(dateGte, "UTF-8"));
-            } catch (UnsupportedEncodingException e) {
-                // Should not happen
-                urlBuilder.append("&date_gte=").append(dateGte);
-            }
-        }
-
-        if (languages != null && !languages.isEmpty()) {
-            for (String lang : languages) {
-                try {
-                    urlBuilder.append("&metadata[language]=").append(URLEncoder.encode(lang, "UTF-8"));
-                } catch (UnsupportedEncodingException e) {
-                    urlBuilder.append("&metadata[language]=").append(lang);
-                }
-            }
-        }
-
-        if (!Utils.isNullOrEmpty(uploader)) {
-            try {
-                urlBuilder.append("&metadata[uploader]=")
-                        .append(URLEncoder.encode(uploader, "UTF-8"));
-            } catch (UnsupportedEncodingException e) {
-                urlBuilder.append("&metadata[uploader]=").append(uploader);
-            }
-        }
-
-        final String apiUrl = urlBuilder.toString();
-
-        final String response = downloader.get(apiUrl, Collections.singletonMap("Accept",
+        final String response = downloader.get(buildSearchUrl(), Collections.singletonMap("Accept",
                 Collections.singletonList("application/json"))).responseBody();
-
         initialData = parseResponse(response);
     }
 
     @Nonnull
     @Override
-    public String getName() throws ParsingException {
-        return "Tournesol Recommendations";
-    }
-
-    @Nonnull
-    @Override
-    public InfoItemsPage<StreamInfoItem> getInitialPage() throws ParsingException {
+    public InfoItemsPage<InfoItem> getInitialPage() throws ParsingException {
         if (initialData == null) {
             throw new ParsingException("Tournesol API response is missing");
         }
@@ -137,7 +62,7 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
     }
 
     @Override
-    public InfoItemsPage<StreamInfoItem> getPage(final Page page)
+    public InfoItemsPage<InfoItem> getPage(final Page page)
             throws IOException, ExtractionException {
         if (page == null || Utils.isNullOrEmpty(page.getUrl())) {
             throw new IllegalArgumentException("Page doesn't contain an URL");
@@ -146,6 +71,45 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
                 Collections.singletonList("application/json"))).responseBody();
         final JsonObject pageData = parseResponse(response);
         return parseInfoItemsPage(pageData);
+    }
+
+    @Nonnull
+    @Override
+    public String getSearchSuggestion() {
+        return "";
+    }
+
+    @Override
+    public boolean isCorrectedSearch() {
+        return false;
+    }
+
+    @Nonnull
+    @Override
+    public List<MetaInfo> getMetaInfo() {
+        return Collections.emptyList();
+    }
+
+    @Nonnull
+    @Override
+    public String getUrl() {
+        return buildSearchUrl();
+    }
+
+    private String buildSearchUrl() {
+        final StringBuilder urlBuilder = new StringBuilder(BASE_API_URL);
+        urlBuilder.append("?limit=20");
+
+        final String query = getSearchString();
+        if (!Utils.isNullOrEmpty(query)) {
+            try {
+                urlBuilder.append("&search=").append(URLEncoder.encode(query, "UTF-8"));
+            } catch (UnsupportedEncodingException e) {
+                urlBuilder.append("&search=").append(query);
+            }
+        }
+
+        return urlBuilder.toString();
     }
 
     private JsonObject parseResponse(final String response) throws ParsingException {
@@ -159,10 +123,10 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
         }
     }
 
-    private InfoItemsPage<StreamInfoItem> parseInfoItemsPage(final JsonObject data)
+    private InfoItemsPage<InfoItem> parseInfoItemsPage(final JsonObject data)
             throws ParsingException {
-        final StreamInfoItemsCollector collector =
-                new StreamInfoItemsCollector(getServiceId());
+        final MultiInfoItemsCollector collector =
+                new MultiInfoItemsCollector(getServiceId());
 
         if (data.has("results")) {
             final JsonArray results = data.getArray("results");

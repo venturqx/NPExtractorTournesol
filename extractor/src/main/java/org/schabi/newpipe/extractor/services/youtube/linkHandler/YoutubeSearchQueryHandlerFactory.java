@@ -16,6 +16,7 @@ public final class YoutubeSearchQueryHandlerFactory extends SearchQueryHandlerFa
             new YoutubeSearchQueryHandlerFactory();
 
     public static final String ALL = "all";
+    public static final String TOURNESOL = "tournesol";
     public static final String VIDEOS = "videos";
     public static final String CHANNELS = "channels";
     public static final String PLAYLISTS = "playlists";
@@ -28,6 +29,8 @@ public final class YoutubeSearchQueryHandlerFactory extends SearchQueryHandlerFa
 
     private static final String SEARCH_URL = "https://www.youtube.com/results?search_query=";
     private static final String MUSIC_SEARCH_URL = "https://music.youtube.com/search?q=";
+    private static final String TOURNESOL_SEARCH_URL =
+            "https://api.tournesol.app/polls/videos/recommendations/?limit=20&search=";
 
     @Nonnull
     public static YoutubeSearchQueryHandlerFactory getInstance() {
@@ -47,6 +50,8 @@ public final class YoutubeSearchQueryHandlerFactory extends SearchQueryHandlerFa
                 return SEARCH_URL + encodeUrlUtf8(searchString) + "&sp=EgIQAvABAQ%253D%253D";
             case PLAYLISTS:
                 return SEARCH_URL + encodeUrlUtf8(searchString) + "&sp=EgIQA_ABAQ%253D%253D";
+            case TOURNESOL:
+                return TOURNESOL_SEARCH_URL + encodeUrlUtf8(searchString);
             case MUSIC_SONGS:
             case MUSIC_VIDEOS:
             case MUSIC_ALBUMS:
@@ -62,6 +67,7 @@ public final class YoutubeSearchQueryHandlerFactory extends SearchQueryHandlerFa
     public String[] getAvailableContentFilter() {
         return new String[]{
                 ALL,
+                TOURNESOL,
                 VIDEOS,
                 CHANNELS,
                 PLAYLISTS,
