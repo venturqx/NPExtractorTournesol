@@ -16,6 +16,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.schabi.newpipe.extractor.NewPipe;
 
@@ -77,6 +78,7 @@ public class TournesolKioskExtractorTest {
         assertEquals("RickAstleyVEVO", item.getUploaderName());
         assertEquals(213, item.getDuration());
         assertEquals("https://www.youtube.com/watch?v=dQw4w9WgXcQ", item.getUrl());
-        assertEquals("tournesol-score:96", item.getShortDescription());
+        assertEquals(96L, item.getTournesolScore());
+        assertNull(item.getShortDescription());
     }
 }

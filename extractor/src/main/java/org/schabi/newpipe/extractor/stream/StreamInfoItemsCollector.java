@@ -99,6 +99,11 @@ public class StreamInfoItemsCollector
             addError(e);
         }
         try {
+            resultItem.setTournesolScore(extractor.getTournesolScore());
+        } catch (final Exception e) {
+            addError(e);
+        }
+        try {
             resultItem.setShortFormContent(extractor.isShortFormContent());
         } catch (final Exception e) {
             addError(e);

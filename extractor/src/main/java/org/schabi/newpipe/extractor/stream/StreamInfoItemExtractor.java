@@ -134,6 +134,17 @@ public interface StreamInfoItemExtractor extends InfoItemExtractor {
     }
 
     /**
+     * The Tournesol score for the stream.
+     *
+     * @return the Tournesol score or {@code null} if not provided by the service.
+     * @throws ParsingException if there is an error in the extraction
+     */
+    @Nullable
+    default Long getTournesolScore() throws ParsingException {
+        return null;
+    }
+
+    /**
      * Whether the stream is a short-form content.
      *
      * <p>

@@ -36,6 +36,8 @@ public class StreamInfoItem extends InfoItem {
 
     private String uploaderName;
     private String shortDescription;
+    @Nullable
+    private Long tournesolScore;
     private String textualUploadDate;
     @Nullable
     private DateWrapper uploadDate;
@@ -107,6 +109,15 @@ public class StreamInfoItem extends InfoItem {
 
     public void setShortDescription(final String shortDescription) {
         this.shortDescription = shortDescription;
+    }
+
+    @Nullable
+    public Long getTournesolScore() {
+        return tournesolScore;
+    }
+
+    public void setTournesolScore(@Nullable final Long tournesolScore) {
+        this.tournesolScore = tournesolScore;
     }
 
     @Nullable
