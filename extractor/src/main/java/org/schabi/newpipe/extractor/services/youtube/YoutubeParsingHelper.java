@@ -26,7 +26,6 @@ import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.DES
 import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.IOS_CLIENT_VERSION;
 import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.IOS_DEVICE_MODEL;
 import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.IOS_USER_AGENT_VERSION;
-import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.TVHTML5_USER_AGENT;
 import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_CLIENT_ID;
 import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_CLIENT_NAME;
 import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_HARDCODED_CLIENT_VERSION;
@@ -182,8 +181,6 @@ public final class YoutubeParsingHelper {
     private static final Pattern C_WEB_PATTERN = Pattern.compile("&c=WEB");
     private static final Pattern C_WEB_EMBEDDED_PLAYER_PATTERN =
             Pattern.compile("&c=WEB_EMBEDDED_PLAYER");
-    private static final Pattern C_TVHTML5_PLAYER_PATTERN =
-            Pattern.compile("&c=TVHTML5");
     private static final Pattern C_ANDROID_PATTERN = Pattern.compile("&c=ANDROID");
     private static final Pattern C_IOS_PATTERN = Pattern.compile("&c=IOS");
 
@@ -1121,14 +1118,20 @@ public final class YoutubeParsingHelper {
     }
 
     /**
-     * Get the user-agent string used as the user-agent for InnerTube requests with the HTML5 TV
-     * client.
-     *
-     * @return the user-agent used for InnerTube requests with the TVHTML5 client
+     * @deprecated TVHTML5 client has been removed; kept for compatibility.
      */
+    @Deprecated
     @Nonnull
     public static String getTvHtml5UserAgent() {
-        return TVHTML5_USER_AGENT;
+        return getAndroidUserAgent(null);
+    }
+
+    /**
+     * @deprecated TVHTML5 client has been removed; always returns false.
+     */
+    @Deprecated
+    public static boolean isTvHtml5StreamingUrl(@Nonnull final String url) {
+        return false;
     }
 
     /**
@@ -1338,6 +1341,26 @@ public final class YoutubeParsingHelper {
     }
 
     /**
+     * Gets the first collaborator, which is the channel that owns the video,
+     * i.e. the video is displayed on their channel page.
+     *
+     * @param navigationEndpoint JSON object for the navigationEndpoint
+     * @return The first collaborator in the JSON object or {@code null}
+     */
+    @Nullable
+    public static JsonObject getFirstCollaborator(final JsonObject navigationEndpoint)
+            throws ParsingException {
+        try {
+            // CHECKSTYLE:OFF
+            final JsonArray listItems = JsonUtils.getArray(navigationEndpoint, "showDialogCommand.panelLoadingStrategy.inlineContent.dialogViewModel.customContent.listViewModel.listItems");
+            // CHECKSTYLE:ON
+            return listItems.getObject(0).getObject("listItemViewModel");
+        } catch (final ParsingException e) {
+            return null;
+        }
+    }
+
+    /**
      * Generate a content playback nonce (also called {@code cpn}), sent by YouTube clients in
      * playback requests (and also for some clients, in the player request body).
      *
@@ -1384,17 +1407,6 @@ public final class YoutubeParsingHelper {
      */
     public static boolean isWebEmbeddedPlayerStreamingUrl(@Nonnull final String url) {
         return Parser.isMatch(C_WEB_EMBEDDED_PLAYER_PATTERN, url);
-    }
-
-    /**
-     * Check if the streaming URL is a URL from the YouTube {@code TVHTML5} client.
-     *
-     * @param url the streaming URL on which check if it's a {@code TVHTML5}
-     *            streaming URL.
-     * @return true if it's a {@code TVHTML5} streaming URL, false otherwise
-     */
-    public static boolean isTvHtml5StreamingUrl(@Nonnull final String url) {
-        return Parser.isMatch(C_TVHTML5_PLAYER_PATTERN, url);
     }
 
     /**
