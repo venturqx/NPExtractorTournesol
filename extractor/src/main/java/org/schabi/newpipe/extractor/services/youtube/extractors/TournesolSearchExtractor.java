@@ -18,6 +18,7 @@ import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.linkhandler.SearchQueryHandler;
 import org.schabi.newpipe.extractor.localization.DateWrapper;
 import org.schabi.newpipe.extractor.search.SearchExtractor;
+import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory;
 import org.schabi.newpipe.extractor.stream.StreamInfoItemExtractor;
 import org.schabi.newpipe.extractor.stream.StreamType;
 import org.schabi.newpipe.extractor.utils.Utils;
@@ -38,10 +39,13 @@ public class TournesolSearchExtractor extends SearchExtractor {
             "https://api.tournesol.app/polls/videos/recommendations/";
 
     private JsonObject initialData;
+    private final boolean includeUnsafe;
 
     public TournesolSearchExtractor(final StreamingService service,
                                     final SearchQueryHandler linkHandler) {
         super(service, linkHandler);
+        this.includeUnsafe = linkHandler.getContentFilters()
+                .contains(YoutubeSearchQueryHandlerFactory.TOURNESOL_UNSAFE);
     }
 
     @Override
@@ -67,7 +71,8 @@ public class TournesolSearchExtractor extends SearchExtractor {
         if (page == null || Utils.isNullOrEmpty(page.getUrl())) {
             throw new IllegalArgumentException("Page doesn't contain an URL");
         }
-        final String response = getDownloader().get(page.getUrl(), Collections.singletonMap("Accept",
+        final String pageUrl = includeUnsafe ? ensureUnsafeParam(page.getUrl()) : page.getUrl();
+        final String response = getDownloader().get(pageUrl, Collections.singletonMap("Accept",
                 Collections.singletonList("application/json"))).responseBody();
         final JsonObject pageData = parseResponse(response);
         return parseInfoItemsPage(pageData);
@@ -108,8 +113,20 @@ public class TournesolSearchExtractor extends SearchExtractor {
                 urlBuilder.append("&search=").append(query);
             }
         }
+        if (includeUnsafe) {
+            urlBuilder.append("&unsafe=true");
+        }
 
         return urlBuilder.toString();
+    }
+
+    @Nonnull
+    private static String ensureUnsafeParam(@Nonnull final String url) {
+        if (url.contains("unsafe=")) {
+            return url;
+        }
+        final String separator = url.contains("?") ? "&" : "?";
+        return url + separator + "unsafe=true";
     }
 
     private JsonObject parseResponse(final String response) throws ParsingException {

@@ -46,6 +46,7 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
     private List<String> languages;
     private String dateGte;
     private String uploader;
+    private boolean includeUnsafe;
 
     public TournesolKioskExtractor(final StreamingService service,
                                    final ListLinkHandler linkHandler,
@@ -55,6 +56,7 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
         this.languages = Arrays.asList("fr", "en", "es");
         this.dateGte = calculateDaysAgo(30);
         this.uploader = null;
+        this.includeUnsafe = false;
     }
 
     private String calculateDaysAgo(int days) {
@@ -76,6 +78,10 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
 
     public void setUploader(final String uploader) {
         this.uploader = uploader;
+    }
+
+    public void setIncludeUnsafe(final boolean includeUnsafe) {
+        this.includeUnsafe = includeUnsafe;
     }
 
     @Override
@@ -112,6 +118,9 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
                 urlBuilder.append("&metadata[uploader]=").append(uploader);
             }
         }
+        if (includeUnsafe) {
+            urlBuilder.append("&unsafe=true");
+        }
 
         final String apiUrl = urlBuilder.toString();
 
@@ -142,10 +151,20 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
         if (page == null || Utils.isNullOrEmpty(page.getUrl())) {
             throw new IllegalArgumentException("Page doesn't contain an URL");
         }
-        final String response = getDownloader().get(page.getUrl(), Collections.singletonMap("Accept",
+        final String pageUrl = includeUnsafe ? ensureUnsafeParam(page.getUrl()) : page.getUrl();
+        final String response = getDownloader().get(pageUrl, Collections.singletonMap("Accept",
                 Collections.singletonList("application/json"))).responseBody();
         final JsonObject pageData = parseResponse(response);
         return parseInfoItemsPage(pageData);
+    }
+
+    @Nonnull
+    private static String ensureUnsafeParam(@Nonnull final String url) {
+        if (url.contains("unsafe=")) {
+            return url;
+        }
+        final String separator = url.contains("?") ? "&" : "?";
+        return url + separator + "unsafe=true";
     }
 
     private JsonObject parseResponse(final String response) throws ParsingException {

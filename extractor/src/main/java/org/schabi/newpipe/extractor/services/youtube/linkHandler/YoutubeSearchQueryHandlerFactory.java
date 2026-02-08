@@ -17,6 +17,7 @@ public final class YoutubeSearchQueryHandlerFactory extends SearchQueryHandlerFa
 
     public static final String ALL = "all";
     public static final String TOURNESOL = "tournesol";
+    public static final String TOURNESOL_UNSAFE = "tournesol_unsafe";
     public static final String VIDEOS = "videos";
     public static final String CHANNELS = "channels";
     public static final String PLAYLISTS = "playlists";
@@ -51,7 +52,12 @@ public final class YoutubeSearchQueryHandlerFactory extends SearchQueryHandlerFa
             case PLAYLISTS:
                 return SEARCH_URL + encodeUrlUtf8(searchString) + "&sp=EgIQA_ABAQ%253D%253D";
             case TOURNESOL:
-                return TOURNESOL_SEARCH_URL + encodeUrlUtf8(searchString);
+                final StringBuilder tournesolUrl = new StringBuilder(TOURNESOL_SEARCH_URL)
+                        .append(encodeUrlUtf8(searchString));
+                if (contentFilters.contains(TOURNESOL_UNSAFE)) {
+                    tournesolUrl.append("&unsafe=true");
+                }
+                return tournesolUrl.toString();
             case MUSIC_SONGS:
             case MUSIC_VIDEOS:
             case MUSIC_ALBUMS:
