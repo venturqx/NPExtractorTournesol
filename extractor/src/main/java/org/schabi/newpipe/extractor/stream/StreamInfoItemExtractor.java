@@ -145,6 +145,17 @@ public interface StreamInfoItemExtractor extends InfoItemExtractor {
     }
 
     /**
+     * The reasons reported by Tournesol when an item is marked as unsafe.
+     *
+     * @return the reasons reported by Tournesol, or an empty list when unavailable.
+     * @throws ParsingException if there is an error in the extraction
+     */
+    @Nonnull
+    default List<String> getTournesolUnsafeReasons() throws ParsingException {
+        return List.of();
+    }
+
+    /**
      * Whether the stream is a short-form content.
      *
      * <p>

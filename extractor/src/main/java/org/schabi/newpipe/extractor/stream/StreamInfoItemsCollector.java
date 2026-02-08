@@ -104,6 +104,11 @@ public class StreamInfoItemsCollector
             addError(e);
         }
         try {
+            resultItem.setTournesolUnsafeReasons(extractor.getTournesolUnsafeReasons());
+        } catch (final Exception e) {
+            addError(e);
+        }
+        try {
             resultItem.setShortFormContent(extractor.isShortFormContent());
         } catch (final Exception e) {
             addError(e);

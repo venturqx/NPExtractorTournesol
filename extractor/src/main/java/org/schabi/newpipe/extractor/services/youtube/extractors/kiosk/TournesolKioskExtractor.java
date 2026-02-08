@@ -26,6 +26,7 @@ import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
@@ -193,6 +194,7 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
 
                     if (entity != null) {
                         final Long tournesolScore = extractTournesolScore(result);
+                        final List<String> unsafeReasons = extractUnsafeReasons(result);
                         final String uid = entity.getString("uid");
                         final Object metadataObj = entity.get("metadata");
                         JsonObject metadata = null;
@@ -256,6 +258,7 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
                             final String finalThumbnail = thumbnail;
                             final String finalTextualUploadDate = textualUploadDate;
                             final DateWrapper finalUploadDate = uploadDate;
+                            final List<String> finalUnsafeReasons = unsafeReasons;
 
                             collector.commit(new StreamInfoItemExtractor() {
                                 @Override
@@ -333,6 +336,13 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
                                 public Long getTournesolScore() throws ParsingException {
                                     return tournesolScore;
                                 }
+
+                                @Nonnull
+                                @Override
+                                public List<String> getTournesolUnsafeReasons()
+                                        throws ParsingException {
+                                    return finalUnsafeReasons;
+                                }
                             });
                         }
                     }
@@ -352,6 +362,37 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
         }
 
         return new InfoItemsPage<>(collector, nextPage);
+    }
+
+    @Nonnull
+    private static List<String> extractUnsafeReasons(@Nullable final JsonObject result) {
+        if (result == null) {
+            return Collections.emptyList();
+        }
+        final JsonObject collectiveRating = result.getObject("collective_rating");
+        if (collectiveRating == null) {
+            return Collections.emptyList();
+        }
+
+        final JsonObject unsafe = collectiveRating.getObject("unsafe");
+        final Object unsafeStatus = unsafe == null ? null : unsafe.get("status");
+        if (!(unsafeStatus instanceof Boolean) || !((Boolean) unsafeStatus)) {
+            return Collections.emptyList();
+        }
+
+        final Object reasonsObj = unsafe.get("reasons");
+        if (!(reasonsObj instanceof JsonArray)) {
+            return Collections.emptyList();
+        }
+
+        final List<String> reasons = new ArrayList<>();
+        for (final Object reasonObj : (JsonArray) reasonsObj) {
+            if (reasonObj instanceof String && !Utils.isNullOrEmpty((String) reasonObj)) {
+                reasons.add((String) reasonObj);
+            }
+        }
+
+        return reasons;
     }
 
     @Nullable

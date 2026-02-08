@@ -26,6 +26,8 @@ import org.schabi.newpipe.extractor.localization.DateWrapper;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -38,6 +40,8 @@ public class StreamInfoItem extends InfoItem {
     private String shortDescription;
     @Nullable
     private Long tournesolScore;
+    @Nonnull
+    private List<String> tournesolUnsafeReasons = List.of();
     private String textualUploadDate;
     @Nullable
     private DateWrapper uploadDate;
@@ -118,6 +122,20 @@ public class StreamInfoItem extends InfoItem {
 
     public void setTournesolScore(@Nullable final Long tournesolScore) {
         this.tournesolScore = tournesolScore;
+    }
+
+    @Nonnull
+    public List<String> getTournesolUnsafeReasons() {
+        return tournesolUnsafeReasons;
+    }
+
+    public void setTournesolUnsafeReasons(@Nullable final List<String> tournesolUnsafeReasons) {
+        if (tournesolUnsafeReasons == null || tournesolUnsafeReasons.isEmpty()) {
+            this.tournesolUnsafeReasons = List.of();
+            return;
+        }
+        this.tournesolUnsafeReasons =
+                Collections.unmodifiableList(new ArrayList<>(tournesolUnsafeReasons));
     }
 
     @Nullable
