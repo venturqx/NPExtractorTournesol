@@ -154,7 +154,7 @@ public class YoutubeStreamInfoItemLockupExtractor implements StreamInfoItemExtra
             .collect(Collectors.toList());
 
         if (potentialDurations.isEmpty()) {
-            throw new ParsingException("Could not get duration: No parsable durations detected");
+            return -1;
         }
 
         ParsingException parsingException = null;
