@@ -42,6 +42,12 @@ public class StreamInfoItem extends InfoItem {
     private Long tournesolScore;
     @Nonnull
     private List<String> tournesolUnsafeReasons = List.of();
+    private int tournesolNContributors = -1;
+    private int tournesolNComparisons = -1;
+    @Nullable
+    private String tournesolBestCriteria = null;
+    @Nullable
+    private String tournesolWorstCriteria = null;
     private String textualUploadDate;
     @Nullable
     private DateWrapper uploadDate;
@@ -136,6 +142,40 @@ public class StreamInfoItem extends InfoItem {
         }
         this.tournesolUnsafeReasons =
                 Collections.unmodifiableList(new ArrayList<>(tournesolUnsafeReasons));
+    }
+
+    public int getTournesolNContributors() {
+        return tournesolNContributors;
+    }
+
+    public void setTournesolNContributors(final int tournesolNContributors) {
+        this.tournesolNContributors = tournesolNContributors;
+    }
+
+    public int getTournesolNComparisons() {
+        return tournesolNComparisons;
+    }
+
+    public void setTournesolNComparisons(final int tournesolNComparisons) {
+        this.tournesolNComparisons = tournesolNComparisons;
+    }
+
+    @Nullable
+    public String getTournesolBestCriteria() {
+        return tournesolBestCriteria;
+    }
+
+    public void setTournesolBestCriteria(@Nullable final String tournesolBestCriteria) {
+        this.tournesolBestCriteria = tournesolBestCriteria;
+    }
+
+    @Nullable
+    public String getTournesolWorstCriteria() {
+        return tournesolWorstCriteria;
+    }
+
+    public void setTournesolWorstCriteria(@Nullable final String tournesolWorstCriteria) {
+        this.tournesolWorstCriteria = tournesolWorstCriteria;
     }
 
     @Nullable

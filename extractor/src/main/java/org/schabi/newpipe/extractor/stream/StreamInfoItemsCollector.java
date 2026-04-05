@@ -109,6 +109,26 @@ public class StreamInfoItemsCollector
             addError(e);
         }
         try {
+            resultItem.setTournesolNContributors(extractor.getTournesolNContributors());
+        } catch (final Exception e) {
+            addError(e);
+        }
+        try {
+            resultItem.setTournesolNComparisons(extractor.getTournesolNComparisons());
+        } catch (final Exception e) {
+            addError(e);
+        }
+        try {
+            resultItem.setTournesolBestCriteria(extractor.getTournesolBestCriteria());
+        } catch (final Exception e) {
+            addError(e);
+        }
+        try {
+            resultItem.setTournesolWorstCriteria(extractor.getTournesolWorstCriteria());
+        } catch (final Exception e) {
+            addError(e);
+        }
+        try {
             resultItem.setShortFormContent(extractor.isShortFormContent());
         } catch (final Exception e) {
             addError(e);

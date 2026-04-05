@@ -157,6 +157,10 @@ public class TournesolSearchExtractor extends SearchExtractor {
                     if (entity != null) {
                         final Long tournesolScore = extractTournesolScore(result);
                         final List<String> unsafeReasons = extractUnsafeReasons(result);
+                        final int nContributors = extractNContributors(result);
+                        final int nComparisons = extractNComparisons(result);
+                        final String bestCriteria = extractBestCriteria(result);
+                        final String worstCriteria = extractWorstCriteria(result);
                         final String uid = entity.getString("uid");
                         final Object metadataObj = entity.get("metadata");
                         JsonObject metadata = null;
@@ -221,6 +225,10 @@ public class TournesolSearchExtractor extends SearchExtractor {
                             final String finalTextualUploadDate = textualUploadDate;
                             final DateWrapper finalUploadDate = uploadDate;
                             final List<String> finalUnsafeReasons = unsafeReasons;
+                            final int finalNContributors = nContributors;
+                            final int finalNComparisons = nComparisons;
+                            final String finalBestCriteria = bestCriteria;
+                            final String finalWorstCriteria = worstCriteria;
 
                             collector.commit(new StreamInfoItemExtractor() {
                                 @Override
@@ -304,6 +312,28 @@ public class TournesolSearchExtractor extends SearchExtractor {
                                 public List<String> getTournesolUnsafeReasons()
                                         throws ParsingException {
                                     return finalUnsafeReasons;
+                                }
+
+                                @Override
+                                public int getTournesolNContributors() throws ParsingException {
+                                    return finalNContributors;
+                                }
+
+                                @Override
+                                public int getTournesolNComparisons() throws ParsingException {
+                                    return finalNComparisons;
+                                }
+
+                                @Nullable
+                                @Override
+                                public String getTournesolBestCriteria() throws ParsingException {
+                                    return finalBestCriteria;
+                                }
+
+                                @Nullable
+                                @Override
+                                public String getTournesolWorstCriteria() throws ParsingException {
+                                    return finalWorstCriteria;
                                 }
                             });
                         }
@@ -482,5 +512,75 @@ public class TournesolSearchExtractor extends SearchExtractor {
         } catch (final DateTimeParseException ignored) {
             return null;
         }
+    }
+
+    private static int extractNContributors(@Nullable final JsonObject result) {
+        if (result == null) {
+            return -1;
+        }
+        final JsonObject cr = result.getObject("collective_rating");
+        if (cr == null) {
+            return -1;
+        }
+        final Object val = cr.get("n_contributors");
+        return val instanceof Number ? ((Number) val).intValue() : -1;
+    }
+
+    private static int extractNComparisons(@Nullable final JsonObject result) {
+        if (result == null) {
+            return -1;
+        }
+        final JsonObject cr = result.getObject("collective_rating");
+        if (cr == null) {
+            return -1;
+        }
+        final Object val = cr.get("n_comparisons");
+        return val instanceof Number ? ((Number) val).intValue() : -1;
+    }
+
+    @Nullable
+    private static String extractBestCriteria(@Nullable final JsonObject result) {
+        return extractCriteriaByRank(result, true);
+    }
+
+    @Nullable
+    private static String extractWorstCriteria(@Nullable final JsonObject result) {
+        return extractCriteriaByRank(result, false);
+    }
+
+    @Nullable
+    private static String extractCriteriaByRank(@Nullable final JsonObject result,
+                                                 final boolean best) {
+        if (result == null) {
+            return null;
+        }
+        final JsonObject cr = result.getObject("collective_rating");
+        if (cr == null) {
+            return null;
+        }
+        final Object scoresObj = cr.get("criteria_scores");
+        if (!(scoresObj instanceof JsonArray)) {
+            return null;
+        }
+        String selectedKey = null;
+        Double selectedScore = null;
+        for (final Object entryObj : (JsonArray) scoresObj) {
+            if (!(entryObj instanceof JsonObject)) {
+                continue;
+            }
+            final JsonObject entry = (JsonObject) entryObj;
+            final String key = entry.getString("criteria");
+            final Object scoreVal = entry.get("score");
+            if (Utils.isNullOrEmpty(key) || !(scoreVal instanceof Number)) {
+                continue;
+            }
+            final double score = ((Number) scoreVal).doubleValue();
+            if (selectedScore == null
+                    || (best ? score > selectedScore : score < selectedScore)) {
+                selectedScore = score;
+                selectedKey = key;
+            }
+        }
+        return selectedKey;
     }
 }

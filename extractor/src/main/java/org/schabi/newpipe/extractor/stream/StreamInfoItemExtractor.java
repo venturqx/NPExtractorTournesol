@@ -156,6 +156,36 @@ public interface StreamInfoItemExtractor extends InfoItemExtractor {
     }
 
     /**
+     * @return number of Tournesol contributors, or -1 if unavailable.
+     */
+    default int getTournesolNContributors() throws ParsingException {
+        return -1;
+    }
+
+    /**
+     * @return number of Tournesol comparisons, or -1 if unavailable.
+     */
+    default int getTournesolNComparisons() throws ParsingException {
+        return -1;
+    }
+
+    /**
+     * @return the criteria key with the highest score, or null if unavailable.
+     */
+    @Nullable
+    default String getTournesolBestCriteria() throws ParsingException {
+        return null;
+    }
+
+    /**
+     * @return the criteria key with the lowest score, or null if unavailable.
+     */
+    @Nullable
+    default String getTournesolWorstCriteria() throws ParsingException {
+        return null;
+    }
+
+    /**
      * Whether the stream is a short-form content.
      *
      * <p>
