@@ -50,6 +50,18 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
     private String dateGte;
     private String uploader;
     private boolean includeUnsafe;
+    private int durationGte = -1;
+    private int durationLte = -1;
+    private int weightLargelyRecommended = -1;
+    private int weightReliability = -1;
+    private int weightImportance = -1;
+    private int weightPedagogy = -1;
+    private int weightLaymanFriendly = -1;
+    private int weightEntertainingRelaxing = -1;
+    private int weightEngaging = -1;
+    private int weightDiversityInclusion = -1;
+    private int weightBetterHabits = -1;
+    private int weightBackfireRisk = -1;
 
     public TournesolKioskExtractor(final StreamingService service,
                                    final ListLinkHandler linkHandler,
@@ -85,6 +97,54 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
 
     public void setIncludeUnsafe(final boolean includeUnsafe) {
         this.includeUnsafe = includeUnsafe;
+    }
+
+    public void setDurationGte(final int durationGte) {
+        this.durationGte = durationGte;
+    }
+
+    public void setDurationLte(final int durationLte) {
+        this.durationLte = durationLte;
+    }
+
+    public void setWeightLargelyRecommended(final int weight) {
+        this.weightLargelyRecommended = weight;
+    }
+
+    public void setWeightReliability(final int weight) {
+        this.weightReliability = weight;
+    }
+
+    public void setWeightImportance(final int weight) {
+        this.weightImportance = weight;
+    }
+
+    public void setWeightPedagogy(final int weight) {
+        this.weightPedagogy = weight;
+    }
+
+    public void setWeightLaymanFriendly(final int weight) {
+        this.weightLaymanFriendly = weight;
+    }
+
+    public void setWeightEntertainingRelaxing(final int weight) {
+        this.weightEntertainingRelaxing = weight;
+    }
+
+    public void setWeightEngaging(final int weight) {
+        this.weightEngaging = weight;
+    }
+
+    public void setWeightDiversityInclusion(final int weight) {
+        this.weightDiversityInclusion = weight;
+    }
+
+    public void setWeightBetterHabits(final int weight) {
+        this.weightBetterHabits = weight;
+    }
+
+    public void setWeightBackfireRisk(final int weight) {
+        this.weightBackfireRisk = weight;
     }
 
     @Override
@@ -123,6 +183,47 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
         }
         if (includeUnsafe) {
             urlBuilder.append("&unsafe=true");
+        }
+
+        if (durationGte >= 0) {
+            urlBuilder.append("&metadata[duration:gte:int]=").append(durationGte);
+        }
+        if (durationLte >= 0) {
+            urlBuilder.append("&metadata[duration:lte:int]=").append(durationLte);
+        }
+
+        if (weightLargelyRecommended >= 0) {
+            urlBuilder.append("&weights[largely_recommended]=")
+                    .append(weightLargelyRecommended);
+        }
+        if (weightReliability >= 0) {
+            urlBuilder.append("&weights[reliability]=").append(weightReliability);
+        }
+        if (weightImportance >= 0) {
+            urlBuilder.append("&weights[importance]=").append(weightImportance);
+        }
+        if (weightPedagogy >= 0) {
+            urlBuilder.append("&weights[pedagogy]=").append(weightPedagogy);
+        }
+        if (weightLaymanFriendly >= 0) {
+            urlBuilder.append("&weights[layman_friendly]=").append(weightLaymanFriendly);
+        }
+        if (weightEntertainingRelaxing >= 0) {
+            urlBuilder.append("&weights[entertaining_relaxing]=")
+                    .append(weightEntertainingRelaxing);
+        }
+        if (weightEngaging >= 0) {
+            urlBuilder.append("&weights[engaging]=").append(weightEngaging);
+        }
+        if (weightDiversityInclusion >= 0) {
+            urlBuilder.append("&weights[diversity_inclusion]=")
+                    .append(weightDiversityInclusion);
+        }
+        if (weightBetterHabits >= 0) {
+            urlBuilder.append("&weights[better_habits]=").append(weightBetterHabits);
+        }
+        if (weightBackfireRisk >= 0) {
+            urlBuilder.append("&weights[backfire_risk]=").append(weightBackfireRisk);
         }
 
         final String apiUrl = urlBuilder.toString();
