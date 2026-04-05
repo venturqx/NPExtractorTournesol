@@ -30,7 +30,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -586,6 +588,12 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
         return extractCriteriaByRank(result, false);
     }
 
+    private static final Set<String> KNOWN_CRITERIA = new HashSet<>(Arrays.asList(
+            "reliability", "pedagogy", "importance", "layman_friendly",
+            "entertaining_relaxing", "engaging", "diversity_inclusion",
+            "better_habits", "backfire_risk"
+    ));
+
     @Nullable
     private static String extractCriteriaByRank(@Nullable final JsonObject result,
                                                  final boolean best) {
@@ -609,7 +617,8 @@ public class TournesolKioskExtractor extends KioskExtractor<StreamInfoItem> {
             final JsonObject entry = (JsonObject) entryObj;
             final String key = entry.getString("criteria");
             final Object scoreVal = entry.get("score");
-            if (Utils.isNullOrEmpty(key) || !(scoreVal instanceof Number)) {
+            if (Utils.isNullOrEmpty(key) || !(scoreVal instanceof Number)
+                    || !KNOWN_CRITERIA.contains(key)) {
                 continue;
             }
             final double score = ((Number) scoreVal).doubleValue();

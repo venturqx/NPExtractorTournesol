@@ -29,8 +29,11 @@ import java.net.URLEncoder;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -548,6 +551,12 @@ public class TournesolSearchExtractor extends SearchExtractor {
         return extractCriteriaByRank(result, false);
     }
 
+    private static final Set<String> KNOWN_CRITERIA = new HashSet<>(Arrays.asList(
+            "reliability", "pedagogy", "importance", "layman_friendly",
+            "entertaining_relaxing", "engaging", "diversity_inclusion",
+            "better_habits", "backfire_risk"
+    ));
+
     @Nullable
     private static String extractCriteriaByRank(@Nullable final JsonObject result,
                                                  final boolean best) {
@@ -571,7 +580,8 @@ public class TournesolSearchExtractor extends SearchExtractor {
             final JsonObject entry = (JsonObject) entryObj;
             final String key = entry.getString("criteria");
             final Object scoreVal = entry.get("score");
-            if (Utils.isNullOrEmpty(key) || !(scoreVal instanceof Number)) {
+            if (Utils.isNullOrEmpty(key) || !(scoreVal instanceof Number)
+                    || !KNOWN_CRITERIA.contains(key)) {
                 continue;
             }
             final double score = ((Number) scoreVal).doubleValue();
