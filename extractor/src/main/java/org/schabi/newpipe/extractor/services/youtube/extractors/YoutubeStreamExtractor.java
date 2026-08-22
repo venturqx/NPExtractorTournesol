@@ -45,6 +45,7 @@ import org.schabi.newpipe.extractor.MetaInfo;
 import org.schabi.newpipe.extractor.MultiInfoItemsCollector;
 import org.schabi.newpipe.extractor.StreamingService;
 import org.schabi.newpipe.extractor.downloader.Downloader;
+import org.schabi.newpipe.extractor.exceptions.AccountTerminatedException;
 import org.schabi.newpipe.extractor.exceptions.AgeRestrictedContentException;
 import org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException;
 import org.schabi.newpipe.extractor.exceptions.ExtractionException;
@@ -87,15 +88,15 @@ import org.schabi.newpipe.extractor.utils.Utils;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -127,6 +128,8 @@ public class YoutubeStreamExtractor extends StreamExtractor {
     private JsonObject nextResponse;
 
     @Nullable
+    private JsonObject visionOsStreamingData;
+    @Nullable
     private JsonObject iosStreamingData;
     @Nullable
     private JsonObject androidStreamingData;
@@ -143,6 +146,7 @@ public class YoutubeStreamExtractor extends StreamExtractor {
     // URLs (with the cpn parameter).
     // Also because a nonce should be unique, it should be different between clients used, so
     // three different strings are used.
+    private String visionOsCpn;
     private String iosCpn;
     private String androidCpn;
 
@@ -182,79 +186,74 @@ public class YoutubeStreamExtractor extends StreamExtractor {
 
     @Nullable
     @Override
-    public String getTextualUploadDate() throws ParsingException {
-        if (!playerMicroFormatRenderer.getString("uploadDate", "").isEmpty()) {
-            return playerMicroFormatRenderer.getString("uploadDate");
-        } else if (!playerMicroFormatRenderer.getString("publishDate", "").isEmpty()) {
-            return playerMicroFormatRenderer.getString("publishDate");
+    public String getTextualUploadDate() {
+        String timestamp = playerMicroFormatRenderer.getString("uploadDate", "");
+        if (timestamp.isEmpty()) {
+            timestamp = playerMicroFormatRenderer.getString("publishDate", "");
+        }
+        if (!timestamp.isEmpty()) {
+            return timestamp;
         }
 
-        final JsonObject liveDetails = playerMicroFormatRenderer.getObject(
-                "liveBroadcastDetails");
-        if (!liveDetails.getString("endTimestamp", "").isEmpty()) {
-            // an ended live stream
-            return liveDetails.getString("endTimestamp");
-        } else if (!liveDetails.getString("startTimestamp", "").isEmpty()) {
+        final var liveDetails = playerMicroFormatRenderer.getObject("liveBroadcastDetails");
+        timestamp = liveDetails.getString("endTimestamp", ""); // an ended live stream
+        if (timestamp.isEmpty()) {
             // a running live stream
-            return liveDetails.getString("startTimestamp");
+            timestamp = liveDetails.getString("startTimestamp", "");
+        }
+        if (!timestamp.isEmpty()) {
+            return timestamp;
         } else if (getStreamType() == StreamType.LIVE_STREAM) {
             // this should never be reached, but a live stream without upload date is valid
             return null;
         }
 
-        final String videoPrimaryInfoRendererDateText =
-                getTextFromObject(getVideoPrimaryInfoRenderer().getObject("dateText"));
-
-        if (videoPrimaryInfoRendererDateText != null) {
-            if (videoPrimaryInfoRendererDateText.startsWith("Premiered")) {
-                final String time = videoPrimaryInfoRendererDateText.substring(13);
-
-                try { // Premiered 20 hours ago
-                    final TimeAgoParser timeAgoParser = TimeAgoPatternsManager.getTimeAgoParserFor(
-                            new Localization("en"));
-                    final OffsetDateTime parsedTime = timeAgoParser.parse(time).offsetDateTime();
-                    return DateTimeFormatter.ISO_LOCAL_DATE.format(parsedTime);
-                } catch (final Exception ignored) {
-                }
-
-                try { // Premiered Feb 21, 2020
-                    final LocalDate localDate = LocalDate.parse(time,
-                            DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH));
-                    return DateTimeFormatter.ISO_LOCAL_DATE.format(localDate);
-                } catch (final Exception ignored) {
-                }
-
-                try { // Premiered on 21 Feb 2020
-                    final LocalDate localDate = LocalDate.parse(time,
-                            DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH));
-                    return DateTimeFormatter.ISO_LOCAL_DATE.format(localDate);
-                } catch (final Exception ignored) {
-                }
-            }
-
-            try {
-                // TODO: this parses English formatted dates only, we need a better approach to
-                //  parse the textual date
-                final LocalDate localDate = LocalDate.parse(videoPrimaryInfoRendererDateText,
-                        DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH));
-                return DateTimeFormatter.ISO_LOCAL_DATE.format(localDate);
-            } catch (final Exception e) {
-                throw new ParsingException("Could not get upload date", e);
-            }
+        final var textObject = getVideoPrimaryInfoRenderer().getObject("dateText");
+        final String rendererDateText = getTextFromObject(textObject);
+        if (rendererDateText == null) {
+            return null;
+        } else if (rendererDateText.startsWith(PREMIERED_ON)) { // Premiered on 21 Feb 2020
+            return rendererDateText.substring(PREMIERED_ON.length());
+        } else if (rendererDateText.startsWith(PREMIERED)) {
+            // Premiered 20 hours ago / Premiered Feb 21, 2020
+            return rendererDateText.substring(PREMIERED.length());
+        } else {
+            return rendererDateText;
         }
-
-        throw new ParsingException("Could not get upload date");
     }
 
     @Override
     public DateWrapper getUploadDate() throws ParsingException {
-        final String textualUploadDate = getTextualUploadDate();
-
-        if (isNullOrEmpty(textualUploadDate)) {
-            return null;
+        final String dateText = getTextualUploadDate();
+        try {
+            return DateWrapper.fromOffsetDateTime(dateText);
+        } catch (final ParsingException e) {
+            // Try other patterns first
         }
 
-        return new DateWrapper(YoutubeParsingHelper.parseDateFrom(textualUploadDate), true);
+        try { // Premiered 20 hours ago
+            final var localization = new Localization("en");
+            return TimeAgoPatternsManager.getTimeAgoParserFor(localization).parse(dateText);
+        } catch (final ParsingException e) {
+            // Try other patterns first
+        }
+
+        return parseOptionalDate(dateText, "MMM dd, yyyy")
+                .or(() -> parseOptionalDate(dateText, "dd MMM yyyy"))
+                .map(date -> new DateWrapper(date.atStartOfDay(), true))
+                .orElseThrow(() ->
+                    new ParsingException("Could not parse upload date \"" + dateText + "\""));
+    }
+
+    private Optional<LocalDate> parseOptionalDate(final String date, final String pattern) {
+        try {
+            // TODO: this parses English formatted dates only, we need a better approach to parse
+            // the textual date
+            final var formatter = DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH);
+            return Optional.of(LocalDate.parse(date, formatter));
+        } catch (final DateTimeParseException e) {
+            return Optional.empty();
+        }
     }
 
     @Nonnull
@@ -307,23 +306,14 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                 .getObject("metadataRowContainer")
                 .getObject("metadataRowContainerRenderer")
                 .getArray("rows")
-                .stream()
-                // Only JsonObjects allowed
-                .filter(JsonObject.class::isInstance)
-                .map(JsonObject.class::cast)
+                .streamAsJsonObjects()
                 .flatMap(metadataRow -> metadataRow
                         .getObject("metadataRowRenderer")
                         .getArray("contents")
-                        .stream()
-                        // Only JsonObjects allowed
-                        .filter(JsonObject.class::isInstance)
-                        .map(JsonObject.class::cast))
+                        .streamAsJsonObjects())
                 .flatMap(content -> content
                         .getArray("runs")
-                        .stream()
-                        // Only JsonObjects allowed
-                        .filter(JsonObject.class::isInstance)
-                        .map(JsonObject.class::cast))
+                        .streamAsJsonObjects())
                 .map(run -> run.getString("text", ""))
                 .anyMatch(rowText -> rowText.contains("Age-restricted"));
 
@@ -435,9 +425,7 @@ public class YoutubeStreamExtractor extends StreamExtractor {
     private static long parseLikeCountFromLikeButtonRenderer(
             @Nonnull final JsonArray topLevelButtons) throws ParsingException {
         String likesString = null;
-        final JsonObject likeToggleButtonRenderer = topLevelButtons.stream()
-                .filter(JsonObject.class::isInstance)
-                .map(JsonObject.class::cast)
+        final JsonObject likeToggleButtonRenderer = topLevelButtons.streamAsJsonObjects()
                 .map(button -> button.getObject("segmentedLikeDislikeButtonRenderer")
                         .getObject("likeButton")
                         .getObject("toggleButtonRenderer"))
@@ -489,9 +477,7 @@ public class YoutubeStreamExtractor extends StreamExtractor {
     private static long parseLikeCountFromLikeButtonViewModel(
             @Nonnull final JsonArray topLevelButtons) throws ParsingException {
         // Try first with the current video actions buttons data structure
-        final JsonObject likeToggleButtonViewModel = topLevelButtons.stream()
-                .filter(JsonObject.class::isInstance)
-                .map(JsonObject.class::cast)
+        final JsonObject likeToggleButtonViewModel = topLevelButtons.streamAsJsonObjects()
                 .map(button -> button.getObject("segmentedLikeDislikeButtonViewModel")
                         .getObject("likeButtonViewModel")
                         .getObject("likeButtonViewModel")
@@ -612,12 +598,24 @@ public class YoutubeStreamExtractor extends StreamExtractor {
     public long getUploaderSubscriberCount() throws ParsingException {
         final JsonObject videoOwnerRenderer = JsonUtils.getObject(videoSecondaryInfoRenderer,
                 "owner.videoOwnerRenderer");
-        if (!videoOwnerRenderer.has("subscriberCountText")) {
+
+        String subscriberCountText = null;
+        if (videoOwnerRenderer.has("subscriberCountText")) {
+            subscriberCountText = getTextFromObject(videoOwnerRenderer
+                .getObject("subscriberCountText"));
+        } else {
+            final String content = YoutubeParsingHelper.getFirstCollaborator(
+                videoOwnerRenderer.getObject("navigationEndpoint")
+            ).getObject("subtitle").getString("content");
+            subscriberCountText = content.split("•")[1];
+        }
+
+        if (isNullOrEmpty(subscriberCountText)) {
             return UNKNOWN_SUBSCRIBER_COUNT;
         }
+
         try {
-            return Utils.mixedNumberWordToLong(getTextFromObject(videoOwnerRenderer
-                    .getObject("subscriberCountText")));
+            return Utils.mixedNumberWordToLong(subscriberCountText);
         } catch (final NumberFormatException e) {
             throw new ParsingException("Could not get uploader subscriber count", e);
         }
@@ -628,7 +626,7 @@ public class YoutubeStreamExtractor extends StreamExtractor {
     public String getDashMpdUrl() throws ParsingException {
         assertPageFetched();
 
-        // There is no DASH manifest available with the iOS client
+        // There is no DASH manifest available with the iOS and visionOS clients
         return getManifestUrl(
                 "dash",
                 List.of(new Pair<>(androidStreamingData, androidStreamingUrlsPoToken)),
@@ -642,14 +640,14 @@ public class YoutubeStreamExtractor extends StreamExtractor {
     public String getHlsUrl() throws ParsingException {
         assertPageFetched();
 
-        // Return HLS manifest of the iOS client first because on livestreams, the HLS manifest
-        // returned has separated audio and video streams and poTokens requirement do not seem to
-        // impact HLS formats (if a poToken is provided, it is added)
-        // Also, on videos, non-iOS clients don't have an HLS manifest URL in their player response
-        // unless a Safari macOS user agent is used
+        // Return HLS manifest of an Apple client first because on livestreams, the HLS manifest
+        // returned has separated audio and video streams
+        // Also, on videos, non-Apple clients don't have an HLS manifest URL in their player
+        // response
         return getManifestUrl(
                 "hls",
-                List.of(new Pair<>(iosStreamingData, iosStreamingUrlsPoToken),
+                List.of(new Pair<>(visionOsStreamingData, null),
+                        new Pair<>(iosStreamingData, iosStreamingUrlsPoToken),
                         new Pair<>(androidStreamingData, androidStreamingUrlsPoToken)),
                 "");
     }
@@ -782,9 +780,7 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                     .getArray("results");
 
             final TimeAgoParser timeAgoParser = getTimeAgoParser();
-            results.stream()
-                    .filter(JsonObject.class::isInstance)
-                    .map(JsonObject.class::cast)
+            results.streamAsJsonObjects()
                     .map(result -> {
                         if (result.has("compactVideoRenderer")) {
                             return new YoutubeStreamInfoItemExtractor(
@@ -860,6 +856,8 @@ public class YoutubeStreamExtractor extends StreamExtractor {
             fetchIosClient(localization, contentCountry, videoId, iosPoTokenResult);
         }
 
+        fetchVisionOsClient(localization, contentCountry, videoId);
+
         fetchWebClientMetadataAndSetThumbnails(localization, contentCountry, videoId);
 
         final byte[] nextBody = JsonWriter.string(
@@ -916,6 +914,10 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                 if (reason.contains("country")) {
                     throw new GeographicRestrictionException(
                             "This video is not available in client's country.");
+                }
+
+                if (reason.contains("closed") || reason.contains("terminated")) {
+                    throw new AccountTerminatedException(reason);
                 }
             }
         }
@@ -977,7 +979,30 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                 }
             }
         } catch (final Exception ignored) {
-            // Ignore exceptions related to IOS client fetch or parsing, as it is not
+            // Ignore exceptions related to IOS client fetching or parsing, as it is not
+            // compulsory to play contents
+        }
+    }
+
+    private void fetchVisionOsClient(@Nonnull final Localization localization,
+                                     @Nonnull final ContentCountry contentCountry,
+                                     @Nonnull final String videoId) {
+        try {
+            visionOsCpn = generateContentPlaybackNonce();
+
+            final JsonObject visionOsPlayerResponse = YoutubeStreamHelper.getVisionOsPlayerResponse(
+                    contentCountry, localization, videoId, visionOsCpn);
+
+            if (!isPlayerResponseNotValid(visionOsPlayerResponse, videoId)) {
+                visionOsStreamingData = visionOsPlayerResponse.getObject(STREAMING_DATA);
+
+                if (isNullOrEmpty(playerCaptionsTracklistRenderer)) {
+                    playerCaptionsTracklistRenderer = visionOsPlayerResponse.getObject(CAPTIONS)
+                            .getObject(PLAYER_CAPTIONS_TRACKLIST_RENDERER);
+                }
+            }
+        } catch (final Exception ignored) {
+            // Ignore exceptions related to VISIONOS client fetching or parsing, as it is not
             // compulsory to play contents
         }
     }
@@ -989,6 +1014,10 @@ public class YoutubeStreamExtractor extends StreamExtractor {
         try {
             final JsonObject webPlayerResponse = YoutubeStreamHelper.getWebMetadataPlayerResponse(
                     localization, contentCountry, videoId);
+
+            // Important note: we don't checkPlayabilityStatus() here, because we use this request
+            // exclusively for metadata, not for extracting streams. It turns out that when
+            // YouTube returns a playability status error, the metadata may still be there.
 
             if (!isPlayerResponseNotValid(webPlayerResponse, videoId)) {
                 // The microformat JSON object of the content is only returned on the WEB client,
@@ -1009,7 +1038,7 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                 }
             }
         } catch (final Exception e) {
-            // Ignore exceptions related to WEB client fetch or parsing, as it is not
+            // Ignore exceptions related to WEB client fetching or parsing, as it is not
             // compulsory to play contents
             // Set thumbnails from playerResponse
             playerMicroFormatRenderer = new JsonObject();
@@ -1087,9 +1116,7 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                 .getObject("results")
                 .getObject("results")
                 .getArray("contents")
-                .stream()
-                .filter(JsonObject.class::isInstance)
-                .map(JsonObject.class::cast)
+                .streamAsJsonObjects()
                 .filter(content -> content.has(videoRendererName))
                 .map(content -> content.getObject(videoRendererName))
                 .findFirst()
@@ -1109,6 +1136,7 @@ public class YoutubeStreamExtractor extends StreamExtractor {
             java.util.stream.Stream.of(
                     new Pair<>(androidStreamingData,
                             new Pair<>(androidCpn, androidStreamingUrlsPoToken)),
+                    new Pair<>(visionOsStreamingData, new Pair<>(visionOsCpn, (String) null)),
                     new Pair<>(iosStreamingData,
                             new Pair<>(iosCpn, iosStreamingUrlsPoToken)))
                     .flatMap(pair -> getStreamsFromStreamingDataKey(
@@ -1257,9 +1285,7 @@ public class YoutubeStreamExtractor extends StreamExtractor {
             return java.util.stream.Stream.empty();
         }
 
-        return streamingData.getArray(streamingDataKey).stream()
-                .filter(JsonObject.class::isInstance)
-                .map(JsonObject.class::cast)
+        return streamingData.getArray(streamingDataKey).streamAsJsonObjects()
                 .map(formatData -> {
                     try {
                         final ItagItem itagItem = ItagItem.getItag(formatData.getInt("itag"));
@@ -1333,6 +1359,9 @@ public class YoutubeStreamExtractor extends StreamExtractor {
         itagItem.setIndexEnd(Integer.parseInt(indexRange.getString("end", "-1")));
         itagItem.setQuality(formatData.getString("quality"));
         itagItem.setCodec(codec);
+        itagItem.setIsDrc(formatData.getBoolean("isDrc", false));
+        itagItem.setLastModified(Long.parseLong(formatData.getString("lastModified", "-1")));
+        itagItem.setXtags(formatData.getString("xtags"));
 
         if (streamType == StreamType.LIVE_STREAM || streamType == StreamType.POST_LIVE_STREAM) {
             itagItem.setTargetDurationSec(formatData.getInt("targetDurationSec"));
@@ -1362,7 +1391,8 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                             audioTrackId.substring(0, audioTrackIdLastLocaleCharacter)
                     ).ifPresent(itagItem::setAudioLocale);
                 }
-                itagItem.setAudioTrackType(YoutubeParsingHelper.extractAudioTrackType(streamUrl));
+                itagItem.setAudioTrackType(
+                        YoutubeParsingHelper.extractAudioTrackType(itagItem.getXtags()));
             }
 
             itagItem.setAudioTrackName(formatData.getObject("audioTrack")
@@ -1526,10 +1556,7 @@ public class YoutubeStreamExtractor extends StreamExtractor {
         }
 
         final JsonArray segmentsArray = nextResponse.getArray("engagementPanels")
-                .stream()
-                // Check if object is a JsonObject
-                .filter(JsonObject.class::isInstance)
-                .map(JsonObject.class::cast)
+                .streamAsJsonObjects()
                 // Check if the panel is the correct one
                 .filter(panel -> "engagement-panel-macro-markers-description-chapters".equals(
                         panel
@@ -1551,12 +1578,12 @@ public class YoutubeStreamExtractor extends StreamExtractor {
 
         final long duration = getLength();
         final List<StreamSegment> segments = new ArrayList<>();
-        for (final JsonObject segmentJson : segmentsArray.stream()
-                .filter(JsonObject.class::isInstance)
-                .map(JsonObject.class::cast)
-                .map(object -> object.getObject("macroMarkersListItemRenderer"))
-                .collect(Collectors.toList())
-        ) {
+        final var segmentStream = segmentsArray.streamAsJsonObjects()
+                .map(object -> object.getObject("macroMarkersListItemRenderer"));
+        final var it = segmentStream.iterator();
+
+        while (it.hasNext()) {
+            final var segmentJson = it.next();
             final int startTimeSeconds = segmentJson.getObject("onTap")
                     .getObject("watchEndpoint").getInt("startTimeSeconds", -1);
 

@@ -133,6 +133,11 @@ public class StreamInfoItemsCollector
         } catch (final Exception e) {
             addError(e);
         }
+        try {
+            resultItem.setContentAvailability(extractor.getContentAvailability());
+        } catch (final Exception e) {
+            addError(e);
+        }
 
         return resultItem;
     }

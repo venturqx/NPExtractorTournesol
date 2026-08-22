@@ -49,8 +49,8 @@ final class ClientsConstants {
      *
      * <p>
      * It can be extracted by getting the latest release version of the app on
-     * <a href="https://apps.apple.com/us/app/youtube/id544007664">the App Store page of the
-     * YouTube app</a>, in the {@code What’s New} section.
+     * <a href="https://apps.apple.com/us/app/youtube/id544007664">the App
+     * Store page of the YouTube app</a>, in the {@code What’s New} section.
      * </p>
      */
     static final String IOS_CLIENT_VERSION = "21.03.2";
@@ -109,4 +109,13 @@ final class ClientsConstants {
      * </p>
      */
     static final String ANDROID_CLIENT_VERSION = "21.03.36";
+
+    // visionOS client fields
+
+    static final String VISIONOS_CLIENT_ID = "101";
+    static final String VISIONOS_CLIENT_NAME = "VISIONOS";
+    static final String VISIONOS_CLIENT_VERSION = "1.02";
+    static final String VISIONOS_DEVICE_MODEL = "RealityDevice14,1";
+    static final String VISIONOS_VERSION = "25.6.0.23O471";
+    static final String VISIONOS_USER_AGENT_VERSION = "25_6_0";
 }
